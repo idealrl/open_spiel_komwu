@@ -26,7 +26,7 @@ import collections
 import attr
 import numpy as np
 
-from open_spiel.python import policy
+from open_spiel_komwu.open_spiel.python import policy
 import pyspiel
 from scipy.special import logsumexp
 
