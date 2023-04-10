@@ -47,6 +47,7 @@ class _InfoStateNode(object):
   children = attr.ib()
   ID = attr.ib()
   children_other_players = attr.ib()
+  player = attr.ib()
   actions_to_sequences = attr.ib(factory=dict)
   sequence_to_infoset = attr.ib(factory=dict)
   
@@ -248,7 +249,8 @@ class _CFRSolverBase(object):
           children_other_players=None,
           actions_to_sequences=None,
           sequence_to_infoset=None,
-          ID=None
+          ID=None,
+          player=None
           )
       self._info_state_nodes[info_state] = info_state_node
 
@@ -258,7 +260,7 @@ class _CFRSolverBase(object):
         
         
         
-  def _initialize_info_state_nodes_komwu(self, state, last_action, player_id, parent_infoset):
+  def _initialize_info_state_nodes_komwu(self, state, last_seq, player_id, parent_infoset):
 
     if state.is_terminal():
       # Collect terminals?
@@ -267,7 +269,7 @@ class _CFRSolverBase(object):
     if state.is_chance_node():
       # Check later, Leduc has multiple chance nodes
       for action, unused_action_prob in state.chance_outcomes():
-        self._initialize_info_state_nodes_komwu(state.child(action), last_action, player_id, parent_infoset)
+        self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset)
       return
      
     current_player = state.current_player()
@@ -279,7 +281,7 @@ class _CFRSolverBase(object):
     if current_player != player_id:
       for action in state.legal_actions(current_player):
         if state.child != None:
-          self._initialize_info_state_nodes_komwu(state.child(action), last_action, player_id, parent_infoset)
+          self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset)
     
     # Are current player
     else:
@@ -290,12 +292,13 @@ class _CFRSolverBase(object):
             legal_actions=legal_actions,
             index_in_tabular_policy=self._current_policy.state_lookup[info_state],
             parent_infoset=parent_infoset,
-            parent_seq=last_action,
+            parent_seq=last_seq,
             states=[state],
             sequences=[],
             children=[],
             children_other_players=[],
-            ID=self.ID
+            ID=self.ID,
+            player=current_player
             )
         self.ID += 1
         self._info_state_nodes_komwu[player_id][info_state] = info_state_node
@@ -303,18 +306,19 @@ class _CFRSolverBase(object):
           self._info_state_nodes_komwu[player_id][info_state].sequences.append(self.seq_id)
           self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action] = self.seq_id
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[self.seq_id] = []
-          last_action = self.seq_id
+          last_seq = self.seq_id
           self.seq_id += 1
-          self._initialize_info_state_nodes_komwu(state.child(action), last_action, player_id, info_state_node)
+          self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
       else:
         self._info_state_nodes_komwu[player_id][info_state].states.append(state)
         for action in info_state_node.legal_actions:
-          self._initialize_info_state_nodes_komwu(state.child(action), self.seq_id, player_id, info_state_node)
+          action_to_seq = self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action]
+          self._initialize_info_state_nodes_komwu(state.child(action), action_to_seq, player_id, info_state_node)
 
 
-  def _initialize_children_komwu(self, state, last_action, player_id, parent_infoset):
+  def _initialize_children_komwu(self, state, last_seq, player_id, parent_infoset):
 
     if state.is_terminal():
       # Collect terminals?
@@ -323,7 +327,7 @@ class _CFRSolverBase(object):
     if state.is_chance_node():
       # Check later, Leduc has multiple chance nodes
       for action, unused_action_prob in state.chance_outcomes():
-        self._initialize_children_komwu(state.child(action), last_action, player_id, parent_infoset)
+        self._initialize_children_komwu(state.child(action), last_seq, player_id, parent_infoset)
       return
  
     current_player = state.current_player()
@@ -337,7 +341,7 @@ class _CFRSolverBase(object):
           if parent_infoset != None:
             if info_state not in self._info_state_nodes_komwu[player_id][parent_infoset].children_other_players:
               self._info_state_nodes_komwu[player_id][parent_infoset].children_other_players.append(info_state)
-          self._initialize_children_komwu(state.child(action), last_action, player_id, parent_infoset)
+          self._initialize_children_komwu(state.child(action), last_seq, player_id, parent_infoset)
     
     # Are the player
     else:
@@ -345,7 +349,7 @@ class _CFRSolverBase(object):
         if info_state not in self._info_state_nodes_komwu[player_id][parent_infoset].children:
           # get the sequence ID from parent infoset that led to here
           # Add actions to sequences above
-          seq = self._info_state_nodes_komwu[player_id][parent_infoset].actions_to_sequences[last_action]
+          seq = last_seq#self._info_state_nodes_komwu[player_id][parent_infoset].actions_to_sequences[last_action]
           # Need .children?
           if info_state_node not in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
             self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq].append(info_state_node)
@@ -353,7 +357,8 @@ class _CFRSolverBase(object):
 
         
       for action in info_state_node.legal_actions:
-        self._initialize_children_komwu(state.child(action), action, player_id, info_state)
+        seq = self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action]
+        self._initialize_children_komwu(state.child(action), seq, player_id, info_state)
       
 
 
