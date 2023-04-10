@@ -20,7 +20,7 @@ on the mean field distribution.
 
 import itertools
 
-from open_spiel.python import games  # pylint:disable=unused-import
+from open_spiel_komwu.open_spiel.python import games  # pylint:disable=unused-import
 import pyspiel
 
 
