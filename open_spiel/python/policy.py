@@ -36,7 +36,7 @@ from typing import Iterable
 
 import numpy as np
 
-from open_spiel.python.algorithms import get_all_states
+from open_spiel_komwu.open_spiel.python.algorithms import get_all_states
 import pyspiel
 
 
