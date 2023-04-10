@@ -26,7 +26,7 @@ import collections
 import attr
 import numpy as np
 
-from open_spiel_komwu.open_spiel.python import policy
+from open_spiel.python import policy
 import pyspiel
 from scipy.special import logsumexp
 
@@ -280,7 +280,7 @@ class _CFRSolverBase(object):
     # If not at the current player_id, keep going
     if current_player != player_id:
       for action in state.legal_actions(current_player):
-        if state.child != None:
+        if state.child(action) != None:
           self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset)
     
     # Are current player
@@ -306,9 +306,9 @@ class _CFRSolverBase(object):
           self._info_state_nodes_komwu[player_id][info_state].sequences.append(self.seq_id)
           self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action] = self.seq_id
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[self.seq_id] = []
-          last_seq = self.seq_id
+          cur_seq = self.seq_id
           self.seq_id += 1
-          self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, info_state_node)
+          self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
       else:
@@ -337,7 +337,7 @@ class _CFRSolverBase(object):
     if current_player != player_id:
       # Add here for relationships for i to -i
       for action in state.legal_actions(current_player):
-        if state.child != None:
+        if state.child(action) != None:
           if parent_infoset != None:
             if info_state not in self._info_state_nodes_komwu[player_id][parent_infoset].children_other_players:
               self._info_state_nodes_komwu[player_id][parent_infoset].children_other_players.append(info_state)
@@ -484,7 +484,7 @@ class _CFRSolverBase(object):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0
+        eta = 0.1
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
