@@ -22,6 +22,7 @@ One iteration of CFR consists of:
 The average policy is what converges to a Nash Equilibrium.
 """
 
+
 import collections
 import attr
 import numpy as np
@@ -178,17 +179,6 @@ class _CFRSolverBase(object):
     self._num_players = game.num_players()
     self._root_node = self._game.new_initial_state()
 
-    print(self._root_node)
-    act = self._root_node.legal_actions()[0]
-    x = self._root_node.child(act)
-    print(x)
-    # x = x.child(0)
-    # print(x)
-    # x = x.child(0)
-    # print(x)
-    # x = x.child(0)
-    # print(x)
-
     # This is for returning the current policy and average policy to a caller
     self._current_policy = policy.TabularPolicy(game)
     self._average_policy = self._current_policy.__copy__()
@@ -200,15 +190,16 @@ class _CFRSolverBase(object):
     global LID
     global INFOID
     p = 0
-    # Arguments(state, last_action, player_id, parent_infoset)
+    
     self.seq_ID = 0
     LID = 0
     INFOID = 0
     self.ID = 0 # infoset IDs
+    # Arguments(state, last_action, player_id, parent_infoset)
     self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None)
     self._initialize_children_komwu(self._root_node, -1, p, None)
+    b0 = [0 for _ in range(LID)]
 
-    # print("LID AFTER FIRST CALL: ", LID)
     p = 1
     self.seq_id = 0 # Reset to make sequences
     self.ID = 0
@@ -216,17 +207,153 @@ class _CFRSolverBase(object):
     LID = 0
     self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None)
     self._initialize_children_komwu(self._root_node, -1, p, None)
+    b1 = [0 for _ in range(LID)]
 
-    # print("LID: ", LID)
-    self.seq_id = LID
-    self.grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
-    self.last_grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    #print("LID: ", LID)
+    #self.seq_id = LID
+    # self.grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    # self.last_grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
     
-    self.b = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+
+    self.b = [b0, b1]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    self.grad = [b0, b1]
+    self.last_grad = [b0, b1]
+
+    p0 = []
+    p1 = []
+    self._root_node = self._game.new_initial_state()
+
+    # print("-----State state--------")
+    # state = self._root_node
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # # player 0
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+    # info_state = state.information_state_string(current_player)
+    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
+    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
+    # sti = self._info_state_nodes_komwu[current_player][info_state].sequence_to_infoset[seq]
+    # x = [sti[i].sequences for i in range(len(sti))]
+    # print(x)
+    # print("ID:")
+    # print(info_state_node.ID)
+    # x = [sti[i].ID for i in range(len(sti))]
+    # print(x)
+    # print(sti[1].ID)
+    # # print(sti[0].sequences, len(sti))#, sti)
+    # p0.append(seq)
+    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p0)
+
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # # player 1
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+    # info_state = state.information_state_string(current_player)
+    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
+    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
+    # p1.append(seq)
+    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p1)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # # Chance (community card)
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # # player 0
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+    # info_state = state.information_state_string(current_player)
+    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
+    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
+    # p0.append(seq)
+    # print("ID:")
+    # print(info_state_node.ID)
+    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p0)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
+
+    # # player 1
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
+    # info_state = state.information_state_string(current_player)
+    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
+    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
+    # p1.append(seq)
+    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p1)
+
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
 
     self._compute_x(t=0)
-
-
 
     self._iteration = 0  # For possible linear-averaging.
     self._linear_averaging = linear_averaging
@@ -321,20 +448,17 @@ class _CFRSolverBase(object):
             ID=INFOID,
             player=current_player
             )
-        self.ID += 1
         global LID
-        # print(LID)
         INFOID += 1
-        # print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", self.seq_id)
+        # print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", LID)
         self._info_state_nodes_komwu[player_id][info_state] = info_state_node
         for action in info_state_node.legal_actions:
           self._info_state_nodes_komwu[player_id][info_state].sequences.append(LID)
           self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action] = LID
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[LID] = []
           cur_seq = LID
-          # self.seq_id += 1
-          LID = LID + 1
-          # print("LID: ", LID)
+          LID += 1
+          print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
           self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
@@ -380,6 +504,7 @@ class _CFRSolverBase(object):
           # Need .children?
           if info_state_node not in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
             self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq].append(info_state_node)
+            # print("Setting ", parent_infoset, " now has: ", self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq])
           self._info_state_nodes_komwu[player_id][parent_infoset].children.append(info_state_node)
 
         
@@ -480,8 +605,9 @@ class _CFRSolverBase(object):
       new_state = state.child(action)
       new_reach_probabilities = reach_probabilities.copy()
       new_reach_probabilities[current_player] *= action_prob
-      seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
-      i += 1
+      # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
+      seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
+      # i += 1
       seqs[current_player] = seq
       child_utility = self._compute_grad(
           new_state,
@@ -497,7 +623,9 @@ class _CFRSolverBase(object):
   def _komwu(self, t):
     
     # seq_id was built up to the total number of seqs
-    self.grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    g0 = [0 for _ in range(len(self.b[0]))]
+    g1 = [0 for _ in range(len(self.b[1]))]
+    self.grad = [g0, g1]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
     
     # state, policies, reach_probabilities, player, seqs
     # Should do lazy cfr check here and collect infosets that will be affected
@@ -508,12 +636,16 @@ class _CFRSolverBase(object):
             player=None,
             seqs=[-1,-1])
    
-
+    # 5 3232
+    # 6 2610
+    # 7 2475
+    # 8 1852
+    # 18 767
     for player_id in range(self._num_players):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 0.1
+        eta = 1.0 / 8.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
@@ -532,7 +664,8 @@ class _CFRSolverBase(object):
           child_values = []
           for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
             child_values.append(K_j[child_infoset.ID])
-          # print(self.b[player_id], seq)
+          # print(self.b[player_id])
+          # print(seq)
           seq_value = self.b[player_id][seq] + sum(child_values)
           seq_values.append(seq_value)
         K_j[infoset.ID] = logsumexp(seq_values)
@@ -541,7 +674,7 @@ class _CFRSolverBase(object):
 
       # Step 3
       
-      y = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+      y = [[0 for _ in range(len(self.b[player_id]))] for _ in range(self._num_players)]
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         for seq in infoset.sequences:
           y[player_id][seq] = self.b[player_id][seq] #+ y[player_id][infoset.parent_seq] + 
@@ -560,11 +693,11 @@ class _CFRSolverBase(object):
           denom += np.exp(y[player_id][seq])
         for action, seq in enumerate(infoset.sequences):
           self._current_policy.action_probability_array[
-          infoset.index_in_tabular_policy][action] = np.exp(y[player_id][seq]) / denom
+          infoset.index_in_tabular_policy][action] = np.exp(y[player_id][seq])# / denom
           infoset.cumulative_policy[action] += np.exp(y[player_id][seq]) / denom
           # if t == 3000:
-          #   print(info_str, seq, self._current_policy.action_probability_array[
-          #   infoset.index_in_tabular_policy][action])
+          # print(info_str, seq, self._current_policy.action_probability_array[
+          # infoset.index_in_tabular_policy][action])
           
       # print(self._current_policy.action_probability_array)
       # print("")
