@@ -458,7 +458,7 @@ class _CFRSolverBase(object):
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[LID] = []
           cur_seq = LID
           LID += 1
-          print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
+          # print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
           self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
@@ -558,7 +558,7 @@ class _CFRSolverBase(object):
         np.prod(reach_probabilities[:0]) *
         np.prod(reach_probabilities[0 + 1:]))
 
-      # print(state.returns()[0] * counterfactual_reach_prob)
+      # print(state.returns()[0] * counterfactual_reach_prob) self.y[0][seqs[0]]
       self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
 
       # Update player 1
@@ -641,31 +641,35 @@ class _CFRSolverBase(object):
     # 7 2475
     # 8 1852
     # 18 767
+    # 22 633
+    # 50 485
     for player_id in range(self._num_players):
-      opt = 2.0
+      opt = 3.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 / 8.0 # eta <= 1/8
+        eta = 1.0 / 10.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
     self._compute_x(t)
 
-  def _compute_x(self,t):    
-      # Step 1
+  def _compute_x(self,t):  
+
+    self.y = [[],[]]  
+    # Step 1
+    y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]
+    self.y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]  
     for player_id in range(self._num_players):
 
-      # print("Player in compute_x ", player_id)
       K_j = [None] * len(self._info_state_nodes_komwu[player_id])
       
       for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
+        
         seq_values = []
         for seq in infoset.sequences:
           child_values = []
           for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
             child_values.append(K_j[child_infoset.ID])
-          # print(self.b[player_id])
-          # print(seq)
           seq_value = self.b[player_id][seq] + sum(child_values)
           seq_values.append(seq_value)
         K_j[infoset.ID] = logsumexp(seq_values)
@@ -673,32 +677,32 @@ class _CFRSolverBase(object):
       # print("")
 
       # Step 3
-      
-      y = [[0 for _ in range(len(self.b[player_id]))] for _ in range(self._num_players)]
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         for seq in infoset.sequences:
-          y[player_id][seq] = self.b[player_id][seq] #+ y[player_id][infoset.parent_seq] + 
+          if infoset.parent_seq == -1:
+            y_new = 0
+          else:
+            y_new = y[player_id][infoset.parent_seq]
+          y[player_id][seq] = self.b[player_id][seq] + y_new 
           child_values = []
           for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
             child_values.append(K_j[child_infoset.ID])
           y[player_id][seq] = y[player_id][seq] + sum(child_values) - K_j[infoset.ID]
-      #     print(y[player_id][seq])  
-      # print("")
-      i = 0
+      
+    self.y[0] = np.exp(y[0])
+    self.y[1] = np.exp(y[1])
+    
+    for player_id in range(self._num_players):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
-        # print(i)
-        # i += 1
         denom = 0
         for action, seq in enumerate(infoset.sequences):
-          denom += np.exp(y[player_id][seq])
+          denom += self.y[player_id][seq]
         for action, seq in enumerate(infoset.sequences):
           self._current_policy.action_probability_array[
-          infoset.index_in_tabular_policy][action] = np.exp(y[player_id][seq])# / denom
-          infoset.cumulative_policy[action] += np.exp(y[player_id][seq]) / denom
-          # if t == 3000:
-          # print(info_str, seq, self._current_policy.action_probability_array[
-          # infoset.index_in_tabular_policy][action])
-          
+          infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
+          # infoset.cumulative_policy[action] += y[player_id][seq]
+    
+    # print(self.y)    
       # print(self._current_policy.action_probability_array)
       # print("")
       # print("yyyyyyyyyy")
