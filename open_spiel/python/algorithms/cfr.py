@@ -180,7 +180,12 @@ class _CFRSolverBase(object):
     self._root_node = self._game.new_initial_state()
 
     # This is for returning the current policy and average policy to a caller
-    self._current_policy = policy.TabularPolicy(game)
+    self._current_policy = policy.TabularPolicy(game, players=[0,1])
+    print(self._current_policy.action_probability_array)
+    print("AVOVE")
+    
+    
+    
     self._average_policy = self._current_policy.__copy__()
 
     # self._info_state_nodes = {}
@@ -223,38 +228,51 @@ class _CFRSolverBase(object):
     p1 = []
     self._root_node = self._game.new_initial_state()
 
-    # print("-----State state--------")
-    # state = self._root_node
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
+    print("-----State state--------")
+    state = self._root_node
+    print(state)
+    current_player = state.current_player()
+    print("  Current Player: ", current_player)
+    print("  Legal actions:")
+    print("  ", state.legal_actions())
+    print("-------------------------")
 
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
+    act = state.legal_actions()[0]
+    print("Taking action: ", act)
 
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
+    print("-----Next state--------")
+    state = state.child(act)
+    print(state)
+    current_player = state.current_player()
+    print("  Current Player: ", current_player)
+    print("  Legal actions:")
+    print("  ", state.legal_actions())
+    print("-------------------------")
 
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
 
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
+    tabular_policy = self._current_policy
+    info_state_str = state.information_state_string(0)
+    state_policy = tabular_policy.policy_for_key(info_state_str)
+    print(state_policy)
+    #state_policy[action] = <value>
+
+    act = state.legal_actions()[1]
+    print("Taking action: ", act)
+
+    print("-----Next state--------")
+    state = state.child(act)
+    print(state)
+    current_player = state.current_player()
+    print("  Current Player: ", current_player)
+    print("  Legal actions:")
+    print("  ", state.legal_actions())
+    print("-------------------------")
+
+    tabular_policy = self._current_policy
+    info_state_str = state.information_state_string(1)
+    state_policy = tabular_policy.policy_for_key(info_state_str)
+    print(state_policy)
+    # #state_policy[action] = <value>
 
     # # player 0
     # act = state.legal_actions()[1]
@@ -359,54 +377,7 @@ class _CFRSolverBase(object):
     self._linear_averaging = linear_averaging
     self._alternating_updates = alternating_updates
     self._regret_matching_plus = regret_matching_plus
-
-    
-
-  def _initialize_info_state_nodes(self, state):
-    """Initializes info_state_nodes.
-
-    Create one _InfoStateNode per infoset. We could also initialize the node
-    when we try to access it and it does not exist.
-
-    Args:
-      state: The current state in the tree walk. This should be the root node
-        when we call this function from a CFR solver.
-    """
-    if state.is_terminal():
-      return
-
-    if state.is_chance_node():
-      for action, unused_action_prob in state.chance_outcomes():
-        self._initialize_info_state_nodes(state.child(action))
-      return
-
-    current_player = state.current_player()
-    info_state = state.information_state_string(current_player)
-
-    info_state_node = self._info_state_nodes.get(info_state)
-    if info_state_node is None:
-      legal_actions = state.legal_actions(current_player)
-      info_state_node = _InfoStateNode(
-          legal_actions=legal_actions,
-          index_in_tabular_policy=self._current_policy.state_lookup[info_state],
-          parent_infoset=None,
-          parent_seq=None,
-          states=None,
-          sequences=None,
-          children=None,
-          children_other_players=None,
-          actions_to_sequences=None,
-          sequence_to_infoset=None,
-          ID=None,
-          player=None
-          )
-      self._info_state_nodes[info_state] = info_state_node
-
-    for action in info_state_node.legal_actions:
-      self._initialize_info_state_nodes(state.child(action))
-
-        
-        
+      
         
   def _initialize_info_state_nodes_komwu(self, state, last_seq, player_id, parent_infoset):
 
@@ -450,6 +421,7 @@ class _CFRSolverBase(object):
             )
         global LID
         INFOID += 1
+        infoid = INFOID - 1
         # print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", LID)
         self._info_state_nodes_komwu[player_id][info_state] = info_state_node
         for action in info_state_node.legal_actions:
@@ -458,7 +430,7 @@ class _CFRSolverBase(object):
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[LID] = []
           cur_seq = LID
           LID += 1
-          # print("Info_state: ", info_state, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
+          print("Info_state: ", info_state," INFODI: ", infoid, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
           self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
@@ -557,7 +529,7 @@ class _CFRSolverBase(object):
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:0]) *
         np.prod(reach_probabilities[0 + 1:]))
-
+      # print("terminal: rp: ", reach_prob, " cfrp: ", counterfactual_reach_prob)
       # print(state.returns()[0] * counterfactual_reach_prob) self.y[0][seqs[0]]
       self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
 
@@ -576,6 +548,7 @@ class _CFRSolverBase(object):
         new_state = state.child(action)
         new_reach_probabilities = reach_probabilities.copy()
         new_reach_probabilities[-1] *= action_prob
+        # print("Chance: action: ", action, " action_prob: ", action_prob, " rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
         state_value += action_prob * self._compute_grad(
             new_state, policies, new_reach_probabilities, player, seqs)
       return state_value
@@ -584,7 +557,7 @@ class _CFRSolverBase(object):
     info_state = state.information_state_string(current_player)
 
     # if all(reach_probabilities[:-1] == 0):
-    #   return np.zeros(self._num_players)
+    #   return 0#np.zeros(self._num_players)
 
     state_value = np.zeros(self._num_players)
 
@@ -599,12 +572,17 @@ class _CFRSolverBase(object):
       info_state_policy = self._get_infostate_policy_komwu(info_state, current_player)
     else:
       info_state_policy = policies[current_player](info_state)
+    # print("Using: ", info_state_policy, " player: ", current_player)
     i = 0
+    
     for action in state.legal_actions():
       action_prob = info_state_policy.get(action, 0.)
+      # action_prob = self._current_policy.action_probability_array[
+      #     info_state_node.index_in_tabular_policy][action + r]
       new_state = state.child(action)
       new_reach_probabilities = reach_probabilities.copy()
       new_reach_probabilities[current_player] *= action_prob
+      # print("rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
       # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
       # i += 1
@@ -644,10 +622,10 @@ class _CFRSolverBase(object):
     # 22 633
     # 50 485
     for player_id in range(self._num_players):
-      opt = 3.0
+      opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 / 10.0 # eta <= 1/8
+        eta = 1.0# / 8.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
@@ -657,24 +635,35 @@ class _CFRSolverBase(object):
 
     self.y = [[],[]]  
     # Step 1
+
+    
     y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]
     self.y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]  
     for player_id in range(self._num_players):
-
+      # print("Step 1")
+      # print("Player: ", player_id)
       K_j = [None] * len(self._info_state_nodes_komwu[player_id])
       
       for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
-        
+        # print(info_str, " ID: ", infoset.ID)
         seq_values = []
         for seq in infoset.sequences:
           child_values = []
           for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
             child_values.append(K_j[child_infoset.ID])
+            # print("  Child in step 1: ", child_infoset.ID)
           seq_value = self.b[player_id][seq] + sum(child_values)
           seq_values.append(seq_value)
         K_j[infoset.ID] = logsumexp(seq_values)
         # print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
       # print("")
+
+  #   for infoset in self.tpx.infosets[::-1]:
+  # for sequence_id in range(infoset.start_sequence_id, infoset.end_sequence_id + 1):
+  #     # Proposition 5.3 in logarithmic form
+  #     y[sequence_id] = y[infoset.parent_sequence_id] \
+  #         + self.b[sequence_id] + sum([K_j[child.infoset_id] for child in self.tpx.children[sequence_id]]) \
+  #         - K_j[infoset.infoset_id]
 
       # Step 3
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
@@ -688,143 +677,40 @@ class _CFRSolverBase(object):
           for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
             child_values.append(K_j[child_infoset.ID])
           y[player_id][seq] = y[player_id][seq] + sum(child_values) - K_j[infoset.ID]
-      
+
+    # print(y[0])  
     self.y[0] = np.exp(y[0])
     self.y[1] = np.exp(y[1])
-    
+    # print(self.y[0])
+    # print("")
+
     for player_id in range(self._num_players):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
+        state_policy = self._current_policy.policy_for_key(info_str)
         denom = 0
-        for action, seq in enumerate(infoset.sequences):
+        for c, v in enumerate(infoset.legal_actions):
+          seq = infoset.sequences[c]
           denom += self.y[player_id][seq]
-        for action, seq in enumerate(infoset.sequences):
+        for c, action in enumerate(infoset.legal_actions):
+          seq = infoset.sequences[c]
           self._current_policy.action_probability_array[
           infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
-          # infoset.cumulative_policy[action] += y[player_id][seq]
-    
-    # print(self.y)    
-      # print(self._current_policy.action_probability_array)
-      # print("")
-      # print("yyyyyyyyyy")
-      # print(y)
-      
-    
-    
-
-      # Next, use y to set the policy
-      # for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
-      #   info_state_node = infoset
-      #   denom = 0
-      #   for seq in infoset.sequences:
-      #     denom += np.exp(y[player_id][seq])
-      #   for action, seq in enumerate(infoset.sequences):
-      #     normal = np.exp(y[player_id][seq]) / denom
-      #     self._current_policy.action_probability_array[
-      #     info_state_node.index_in_tabular_policy][action] = normal
           
 
-  def _compute_counterfactual_regret_for_player(self, state, policies,
-                                                reach_probabilities, player):
-    """Increments the cumulative regrets and policy for `player`.
+        # for action, seq in enumerate(infoset.sequences):
+        #   denom += self.y[player_id][seq]
+        # for action, seq in enumerate(infoset.sequences):
+        #   self._current_policy.action_probability_array[
+        #   infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
+          # infoset.cumulative_policy[action] += y[player_id][seq]
 
-    Args:
-      state: The initial game state to analyze from.
-      policies: A list of `num_players` callables taking as input an
-        `info_state_node` and returning a {action: prob} dictionary. For CFR,
-          this is simply returning the current policy, but this can be used in
-          the CFR-BR solver, to prevent code duplication. If None,
-          `_get_infostate_policy` is used.
-      reach_probabilities: The probability for each player of reaching `state`
-        as a numpy array [prob for player 0, for player 1,..., for chance].
-        `player_reach_probabilities[player]` will work in all cases.
-      player: The 0-indexed player to update the values for. If `None`, the
-        update for all players will be performed.
-
-    Returns:
-      The utility of `state` for all players, assuming all players follow the
-      current policy defined by `self.Policy`.
-    """
-    if state.is_terminal():
-      return np.asarray(state.returns())
-
-    if state.is_chance_node():
-      state_value = 0.0
-      for action, action_prob in state.chance_outcomes():
-        assert action_prob > 0
-        new_state = state.child(action)
-        new_reach_probabilities = reach_probabilities.copy()
-        new_reach_probabilities[-1] *= action_prob
-        state_value += action_prob * self._compute_counterfactual_regret_for_player(
-            new_state, policies, new_reach_probabilities, player)
-      return state_value
-
-    current_player = state.current_player()
-    info_state = state.information_state_string(current_player)
-
-    # No need to continue on this history branch as no update will be performed
-    # for any player.
-    # The value we return here is not used in practice. If the conditional
-    # statement is True, then the last taken action has probability 0 of
-    # occurring, so the returned value is not impacting the parent node value.
-    if all(reach_probabilities[:-1] == 0):
-      return np.zeros(self._num_players)
-
-    state_value = np.zeros(self._num_players)
-
-    # The utilities of the children states are computed recursively. As the
-    # regrets are added to the information state regrets for each state in that
-    # information state, the recursive call can only be made once per child
-    # state. Therefore, the utilities are cached.
-    children_utilities = {}
-
-    info_state_node = self._info_state_nodes[info_state]
-    if policies is None:
-      info_state_policy = self._get_infostate_policy(info_state)
-    else:
-      info_state_policy = policies[current_player](info_state)
-    for action in state.legal_actions():
-      action_prob = info_state_policy.get(action, 0.)
-      new_state = state.child(action)
-      new_reach_probabilities = reach_probabilities.copy()
-      new_reach_probabilities[current_player] *= action_prob
-      child_utility = self._compute_counterfactual_regret_for_player(
-          new_state,
-          policies=policies,
-          reach_probabilities=new_reach_probabilities,
-          player=player)
-
-      state_value += action_prob * child_utility
-      children_utilities[action] = child_utility
-
-    # If we are performing alternating updates, and the current player is not
-    # the current_player, we skip the cumulative values update.
-    # If we are performing simultaneous updates, we do update the cumulative
-    # values.
-    simulatenous_updates = player is None
-    if not simulatenous_updates and current_player != player:
-      return state_value
-
-    reach_prob = reach_probabilities[current_player]
-    counterfactual_reach_prob = (
-        np.prod(reach_probabilities[:current_player]) *
-        np.prod(reach_probabilities[current_player + 1:]))
-    state_value_for_player = state_value[current_player]
-
-    for action, action_prob in info_state_policy.items():
-      cfr_regret = counterfactual_reach_prob * (
-          children_utilities[action][current_player] - state_value_for_player)
-
-      info_state_node.cumulative_regret[action] += cfr_regret
-      if self._linear_averaging:
-        info_state_node.cumulative_policy[
-            action] += self._iteration * reach_prob * action_prob
-      else:
-        info_state_node.cumulative_policy[action] += reach_prob * action_prob
-
-    return state_value
-
+    # print(self._current_policy.action_probability_array)
+           
+ 
   def _get_infostate_policy(self, info_state_str):
     """Returns an {action: prob} dictionary for the policy on `info_state`."""
+    for i in range(10):
+      print("HHHEEEEE")
     info_state_node = self._info_state_nodes[info_state_str]
     prob_vec = self._current_policy.action_probability_array[
         info_state_node.index_in_tabular_policy]
