@@ -51,6 +51,7 @@ class _InfoStateNode(object):
   ID = attr.ib()
   children_other_players = attr.ib()
   player = attr.ib()
+  info_state = attr.ib()
   actions_to_sequences = attr.ib(factory=dict)
   sequence_to_infoset = attr.ib(factory=dict)
   
@@ -228,50 +229,50 @@ class _CFRSolverBase(object):
     p1 = []
     self._root_node = self._game.new_initial_state()
 
-    print("-----State state--------")
-    state = self._root_node
-    print(state)
-    current_player = state.current_player()
-    print("  Current Player: ", current_player)
-    print("  Legal actions:")
-    print("  ", state.legal_actions())
-    print("-------------------------")
+    # print("-----State state--------")
+    # state = self._root_node
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
 
-    act = state.legal_actions()[0]
-    print("Taking action: ", act)
+    # act = state.legal_actions()[0]
+    # print("Taking action: ", act)
 
-    print("-----Next state--------")
-    state = state.child(act)
-    print(state)
-    current_player = state.current_player()
-    print("  Current Player: ", current_player)
-    print("  Legal actions:")
-    print("  ", state.legal_actions())
-    print("-------------------------")
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
 
 
-    tabular_policy = self._current_policy
-    info_state_str = state.information_state_string(0)
-    state_policy = tabular_policy.policy_for_key(info_state_str)
-    print(state_policy)
-    #state_policy[action] = <value>
+    # tabular_policy = self._current_policy
+    # info_state_str = state.information_state_string(0)
+    # state_policy = tabular_policy.policy_for_key(info_state_str)
+    # print(state_policy)
+    # #state_policy[action] = <value>
 
-    act = state.legal_actions()[1]
-    print("Taking action: ", act)
+    # act = state.legal_actions()[1]
+    # print("Taking action: ", act)
 
-    print("-----Next state--------")
-    state = state.child(act)
-    print(state)
-    current_player = state.current_player()
-    print("  Current Player: ", current_player)
-    print("  Legal actions:")
-    print("  ", state.legal_actions())
-    print("-------------------------")
+    # print("-----Next state--------")
+    # state = state.child(act)
+    # print(state)
+    # current_player = state.current_player()
+    # print("  Current Player: ", current_player)
+    # print("  Legal actions:")
+    # print("  ", state.legal_actions())
+    # print("-------------------------")
 
-    tabular_policy = self._current_policy
-    info_state_str = state.information_state_string(1)
-    state_policy = tabular_policy.policy_for_key(info_state_str)
-    print(state_policy)
+    # tabular_policy = self._current_policy
+    # info_state_str = state.information_state_string(1)
+    # state_policy = tabular_policy.policy_for_key(info_state_str)
+    # print(state_policy)
     # #state_policy[action] = <value>
 
     # # player 0
@@ -407,6 +408,8 @@ class _CFRSolverBase(object):
       global INFOID
       if info_state_node is None:
         legal_actions = state.legal_actions(current_player)
+        if len(legal_actions) <= 1:
+          print("LESS: ", legal_actions)
         info_state_node = _InfoStateNode(
             legal_actions=legal_actions,
             index_in_tabular_policy=self._current_policy.state_lookup[info_state],
@@ -417,7 +420,8 @@ class _CFRSolverBase(object):
             children=[],
             children_other_players=[],
             ID=INFOID,
-            player=current_player
+            player=current_player,
+            info_state=info_state
             )
         global LID
         INFOID += 1
@@ -430,7 +434,7 @@ class _CFRSolverBase(object):
           self._info_state_nodes_komwu[player_id][info_state].sequence_to_infoset[LID] = []
           cur_seq = LID
           LID += 1
-          print("Info_state: ", info_state," INFODI: ", infoid, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
+          # print("Info_state: ", info_state," INFODI: ", infoid, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
           self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
           
       # If infoset already exists, append history
@@ -476,7 +480,9 @@ class _CFRSolverBase(object):
           # Need .children?
           if info_state_node not in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
             self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq].append(info_state_node)
-            # print("Setting ", parent_infoset, " now has: ", self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq])
+            # print("Setting ", parent_infoset, " now has: ")
+            # for x in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
+            #   print("  child: ", x.info_state)
           self._info_state_nodes_komwu[player_id][parent_infoset].children.append(info_state_node)
 
         
@@ -586,13 +592,19 @@ class _CFRSolverBase(object):
       # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
       # i += 1
-      seqs[current_player] = seq
+
+      ######## CHANGED NOTHING
+      new_seqs = seqs.copy()
+      new_seqs[current_player] = seq
+      ################
+
+      # seqs[current_player] = seq
       child_utility = self._compute_grad(
           new_state,
           policies=policies,
           reach_probabilities=new_reach_probabilities,
           player=player,
-          seqs=seqs)
+          seqs=new_seqs)
 
    
     return state_value
@@ -625,7 +637,7 @@ class _CFRSolverBase(object):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0# / 8.0 # eta <= 1/8
+        eta = 1.0 / 8.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
@@ -655,7 +667,7 @@ class _CFRSolverBase(object):
           seq_value = self.b[player_id][seq] + sum(child_values)
           seq_values.append(seq_value)
         K_j[infoset.ID] = logsumexp(seq_values)
-        # print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
+      #   print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
       # print("")
 
   #   for infoset in self.tpx.infosets[::-1]:
