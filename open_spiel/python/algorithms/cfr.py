@@ -529,18 +529,14 @@ class _CFRSolverBase(object):
   def _compute_grad(self, state, policies, reach_probabilities, player, seqs):
     
     if state.is_terminal():
-      
+
       # Update player 0
-      reach_prob = reach_probabilities[0]
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:0]) *
         np.prod(reach_probabilities[0 + 1:]))
-      # print("terminal: rp: ", reach_prob, " cfrp: ", counterfactual_reach_prob)
-      # print(state.returns()[0] * counterfactual_reach_prob) self.y[0][seqs[0]]
       self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
 
       # Update player 1
-      reach_prob = reach_probabilities[1]
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:1]) *
         np.prod(reach_probabilities[1 + 1:]))
@@ -579,7 +575,6 @@ class _CFRSolverBase(object):
     else:
       info_state_policy = policies[current_player](info_state)
     # print("Using: ", info_state_policy, " player: ", current_player)
-    i = 0
     
     for action in state.legal_actions():
       action_prob = info_state_policy.get(action, 0.)
@@ -591,20 +586,19 @@ class _CFRSolverBase(object):
       # print("rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
       # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
-      # i += 1
-
+      
       ######## CHANGED NOTHING
-      new_seqs = seqs.copy()
-      new_seqs[current_player] = seq
+      # new_seqs = seqs.copy()
+      # new_seqs[current_player] = seq
       ################
 
-      # seqs[current_player] = seq
+      seqs[current_player] = seq
       child_utility = self._compute_grad(
           new_state,
           policies=policies,
           reach_probabilities=new_reach_probabilities,
           player=player,
-          seqs=new_seqs)
+          seqs=seqs)
 
    
     return state_value
@@ -637,7 +631,7 @@ class _CFRSolverBase(object):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 / 8.0 # eta <= 1/8
+        eta = 1.0 #/ 8.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
@@ -652,30 +646,29 @@ class _CFRSolverBase(object):
     y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]
     self.y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]  
     for player_id in range(self._num_players):
-      # print("Step 1")
-      # print("Player: ", player_id)
+      
       K_j = [None] * len(self._info_state_nodes_komwu[player_id])
       
       for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
-        # print(info_str, " ID: ", infoset.ID)
-        seq_values = []
-        for seq in infoset.sequences:
-          child_values = []
-          for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
-            child_values.append(K_j[child_infoset.ID])
-            # print("  Child in step 1: ", child_infoset.ID)
-          seq_value = self.b[player_id][seq] + sum(child_values)
-          seq_values.append(seq_value)
-        K_j[infoset.ID] = logsumexp(seq_values)
-      #   print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
-      # print("")
+       
+        K_j[infoset.ID] = logsumexp([
+            self.b[player_id][seq] + sum([K_j[child_infoset.ID] for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]])
+            for seq in infoset.sequences
+        ])
 
-  #   for infoset in self.tpx.infosets[::-1]:
-  # for sequence_id in range(infoset.start_sequence_id, infoset.end_sequence_id + 1):
-  #     # Proposition 5.3 in logarithmic form
-  #     y[sequence_id] = y[infoset.parent_sequence_id] \
-  #         + self.b[sequence_id] + sum([K_j[child.infoset_id] for child in self.tpx.children[sequence_id]]) \
-  #         - K_j[infoset.infoset_id]
+      # for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
+      #   seq_values = []
+      #   for seq in infoset.sequences:
+      #     child_values = []
+      #     for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
+      #       child_values.append(K_j[child_infoset.ID])
+      #     seq_value = self.b[player_id][seq] + sum(child_values)
+      #     seq_values.append(seq_value)
+      #   K_j[infoset.ID] = logsumexp(seq_values)
+      # #   print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
+      # # print("")
+
+
 
       # Step 3
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
@@ -700,11 +693,22 @@ class _CFRSolverBase(object):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         state_policy = self._current_policy.policy_for_key(info_str)
         denom = 0
-        for c, v in enumerate(infoset.legal_actions):
-          seq = infoset.sequences[c]
+        for action in infoset.legal_actions: #c, v in enumerate(infoset.legal_actions):
+          #seq = infoset.sequences[c]
+          seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
+          if self.y[player_id][seq] <= 1e-130:
+            self.y[player_id][seq] = 1e-130
           denom += self.y[player_id][seq]
-        for c, action in enumerate(infoset.legal_actions):
-          seq = infoset.sequences[c]
+        if denom < 1e-130:
+          print("DENOM: ", denom)
+          for action in infoset.legal_actions: #c, v in enumerate(infoset.legal_actions):
+          
+            seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
+            print("   ", self.y[player_id][seq])
+        for action in infoset.legal_actions:
+          # seq = infoset.sequences[c]
+          seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
+          
           self._current_policy.action_probability_array[
           infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
           
