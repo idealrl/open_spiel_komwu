@@ -631,7 +631,7 @@ class _CFRSolverBase(object):
       opt = 3.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 #/ 8.0 # eta <= 1/8
+        eta = 4.0 #/ 8.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
