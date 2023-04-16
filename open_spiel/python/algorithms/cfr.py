@@ -52,6 +52,7 @@ class _InfoStateNode(object):
   children_other_players = attr.ib()
   player = attr.ib()
   info_state = attr.ib()
+  depth = attr.ib()
   actions_to_sequences = attr.ib(factory=dict)
   sequence_to_infoset = attr.ib(factory=dict)
   
@@ -201,8 +202,8 @@ class _CFRSolverBase(object):
     LID = 0
     INFOID = 0
     self.ID = 0 # infoset IDs
-    # Arguments(state, last_action, player_id, parent_infoset)
-    self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None)
+    # Arguments(state, last_action, player_id, parent_infoset, depth)
+    self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None, 0)
     self._initialize_children_komwu(self._root_node, -1, p, None)
     b0 = [0 for _ in range(LID)]
 
@@ -211,7 +212,7 @@ class _CFRSolverBase(object):
     self.ID = 0
     INFOID = 0
     LID = 0
-    self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None)
+    self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None,0)
     self._initialize_children_komwu(self._root_node, -1, p, None)
     b1 = [0 for _ in range(LID)]
 
@@ -380,7 +381,7 @@ class _CFRSolverBase(object):
     self._regret_matching_plus = regret_matching_plus
       
         
-  def _initialize_info_state_nodes_komwu(self, state, last_seq, player_id, parent_infoset):
+  def _initialize_info_state_nodes_komwu(self, state, last_seq, player_id, parent_infoset, depth):
 
     if state.is_terminal():
       # Collect terminals?
@@ -389,7 +390,7 @@ class _CFRSolverBase(object):
     if state.is_chance_node():
       # Check later, Leduc has multiple chance nodes
       for action, unused_action_prob in state.chance_outcomes():
-        self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset)
+        self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset, depth)
       return
      
     current_player = state.current_player()
@@ -401,7 +402,7 @@ class _CFRSolverBase(object):
     if current_player != player_id:
       for action in state.legal_actions(current_player):
         if state.child(action) != None:
-          self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset)
+          self._initialize_info_state_nodes_komwu(state.child(action), last_seq, player_id, parent_infoset, depth)
   
     # Are current player
     else:
@@ -421,7 +422,8 @@ class _CFRSolverBase(object):
             children_other_players=[],
             ID=INFOID,
             player=current_player,
-            info_state=info_state
+            info_state=info_state,
+            depth=depth
             )
         global LID
         INFOID += 1
@@ -435,14 +437,14 @@ class _CFRSolverBase(object):
           cur_seq = LID
           LID += 1
           # print("Info_state: ", info_state," INFODI: ", infoid, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
-          self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node)
+          self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node, depth+1)
           
       # If infoset already exists, append history
       else:
         self._info_state_nodes_komwu[player_id][info_state].states.append(state)
         for action in info_state_node.legal_actions:
           action_to_seq = self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action]
-          self._initialize_info_state_nodes_komwu(state.child(action), action_to_seq, player_id, info_state_node)
+          self._initialize_info_state_nodes_komwu(state.child(action), action_to_seq, player_id, info_state_node, depth+1)
 
 
   def _initialize_children_komwu(self, state, last_seq, player_id, parent_infoset):
@@ -530,17 +532,23 @@ class _CFRSolverBase(object):
     
     if state.is_terminal():
 
+      cfr = reach_probabilities[-1]
+      # print(cfr)
       # Update player 0
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:0]) *
         np.prod(reach_probabilities[0 + 1:]))
-      self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
+      
+      # self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
+      self.grad[0][seqs[0]] += state.returns()[0] * cfr * self.y[1][seqs[1]]
+      # print(self.y[0][seqs[0]])
 
       # Update player 1
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:1]) *
         np.prod(reach_probabilities[1 + 1:]))
-      self.grad[1][seqs[1]] += state.returns()[1] * counterfactual_reach_prob
+      # self.grad[1][seqs[1]] += state.returns()[1] * counterfactual_reach_prob
+      self.grad[1][seqs[1]] += state.returns()[1] * cfr * self.y[0][seqs[0]]
       return np.asarray(state.returns())
 
     if state.is_chance_node():
@@ -586,10 +594,11 @@ class _CFRSolverBase(object):
       # print("rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
       # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
-      
+      reach_prob = reach_probabilities[current_player]
+      info_state_node.cumulative_policy[action] += reach_prob * action_prob
       ######## CHANGED NOTHING
-      # new_seqs = seqs.copy()
-      # new_seqs[current_player] = seq
+      new_seqs = seqs.copy()
+      new_seqs[current_player] = seq
       ################
 
       seqs[current_player] = seq
@@ -598,7 +607,7 @@ class _CFRSolverBase(object):
           policies=policies,
           reach_probabilities=new_reach_probabilities,
           player=player,
-          seqs=seqs)
+          seqs=new_seqs)
 
    
     return state_value
@@ -609,7 +618,7 @@ class _CFRSolverBase(object):
     # seq_id was built up to the total number of seqs
     g0 = [0 for _ in range(len(self.b[0]))]
     g1 = [0 for _ in range(len(self.b[1]))]
-    self.grad = [g0, g1]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    self.grad = [[0 for _ in range(len(self.b[0]))], [0 for _ in range(len(self.b[0]))]]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
     
     # state, policies, reach_probabilities, player, seqs
     # Should do lazy cfr check here and collect infosets that will be affected
@@ -618,7 +627,7 @@ class _CFRSolverBase(object):
             policies=None,
             reach_probabilities=np.ones(self._game.num_players() + 1),
             player=None,
-            seqs=[-1,-1])
+            seqs=[-100000,-100000])
    
     # 5 3232
     # 6 2610
@@ -631,31 +640,51 @@ class _CFRSolverBase(object):
       opt = 3.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 4.0 #/ 8.0 # eta <= 1/8
+        eta = 1.0 # / 15.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
+    # print(len(self.b[0]))
+    # print(self.b[0])
+    # print("GRAD")
+    # print(self.grad)
+    # print(self.last_grad)
     self.last_grad = self.grad
   
     self._compute_x(t)
 
   def _compute_x(self,t):  
 
+    new_list = [[],[]]
+    for player_id in range(self._num_players):
+      for i in range(10):
+        for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
+          if infoset.depth == i:
+            new_list[player_id].append(infoset)
+    # for i in new_list:
+    #   print(i)
+    
+    # print(len(new_list[0]), len(new_list[1]))
+
     self.y = [[],[]]  
     # Step 1
-
-    
+    # print(len(self.b[0]), len(self.b[0]))
+    # print("Iteration: ", t)
     y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]
     self.y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]  
     for player_id in range(self._num_players):
-      
+      # print("Player: ", player_id)
       K_j = [None] * len(self._info_state_nodes_komwu[player_id])
       
-      for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
-       
+      #for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
+      for infoset in new_list[player_id][::-1]:
+        info_str = infoset.info_state
         K_j[infoset.ID] = logsumexp([
             self.b[player_id][seq] + sum([K_j[child_infoset.ID] for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]])
             for seq in infoset.sequences
         ])
+      #   print("K_j: ", "(", info_str, ")", K_j[infoset.ID])
+      # print("")
 
+      # Non-pythonic version of above (CORRECT?)
       # for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
       #   seq_values = []
       #   for seq in infoset.sequences:
@@ -671,17 +700,31 @@ class _CFRSolverBase(object):
 
 
       # Step 3
-      for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
-        for seq in infoset.sequences:
+      # for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
+      # for infoset in new_list[player_id]:
+      #   info_str = infoset.info_state
+      #   for seq in infoset.sequences:
+      #     if infoset.parent_seq == -1:
+      #       y_new = 0
+      #     else:
+      #       y_new = y[player_id][infoset.parent_seq]
+      #     y[player_id][seq] = self.b[player_id][seq] + y_new 
+      #     child_values = []
+      #     for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
+      #       child_values.append(K_j[child_infoset.ID])
+      #     y[player_id][seq] = y[player_id][seq] + sum(child_values) - K_j[infoset.ID]
+
+      for infoset in new_list[player_id]:
+        for sequence_id in infoset.sequences: #range(infoset.start_sequence_id, infoset.end_sequence_id + 1):
+          # Proposition 5.3 in logarithmic form
+          info_str = infoset.info_state
           if infoset.parent_seq == -1:
             y_new = 0
           else:
             y_new = y[player_id][infoset.parent_seq]
-          y[player_id][seq] = self.b[player_id][seq] + y_new 
-          child_values = []
-          for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]:
-            child_values.append(K_j[child_infoset.ID])
-          y[player_id][seq] = y[player_id][seq] + sum(child_values) - K_j[infoset.ID]
+          y[player_id][sequence_id] = y_new \
+          + self.b[player_id][sequence_id] + sum([K_j[child.ID] for child in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[sequence_id]]) \
+          - K_j[infoset.ID]
 
     # print(y[0])  
     self.y[0] = np.exp(y[0])
@@ -689,6 +732,8 @@ class _CFRSolverBase(object):
     # print(self.y[0])
     # print("")
 
+
+    # Normalize sequence form for behavioral form
     for player_id in range(self._num_players):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         state_policy = self._current_policy.policy_for_key(info_str)
@@ -699,12 +744,6 @@ class _CFRSolverBase(object):
           if self.y[player_id][seq] <= 1e-130:
             self.y[player_id][seq] = 1e-130
           denom += self.y[player_id][seq]
-        if denom < 1e-130:
-          print("DENOM: ", denom)
-          for action in infoset.legal_actions: #c, v in enumerate(infoset.legal_actions):
-          
-            seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
-            print("   ", self.y[player_id][seq])
         for action in infoset.legal_actions:
           # seq = infoset.sequences[c]
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
@@ -829,6 +868,9 @@ class _CFRSolver(_CFRSolverBase):
     else:
       x = 1
       self._komwu(self._iteration)
+      # _update_average_policy(self._average_policy, self._info_state_nodes_komwu)
+      # _update_average_policy(self._current_policy, self._info_state_nodes)
+
       # self._compute_counterfactual_regret_for_player(
       #     self._root_node,
       #     policies=None,
