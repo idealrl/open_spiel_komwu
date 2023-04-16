@@ -637,7 +637,7 @@ class _CFRSolverBase(object):
     # 22 633
     # 50 485
     for player_id in range(self._num_players):
-      opt = 3.0
+      opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
         eta = 1.0 # / 15.0 # eta <= 1/8
@@ -727,18 +727,20 @@ class _CFRSolverBase(object):
           - K_j[infoset.ID]
 
     # print(y[0])  
-    # self.y[0] = np.exp(y[0])
-    # self.y[1] = np.exp(y[1])
+    self.y[0] = np.exp(y[0])
+    self.y[1] = np.exp(y[1])
 
-    self.y[0] = np.exp(y[0] - logsumexp(y[0]))
-    self.y[1] = np.exp(y[1] - logsumexp(y[1]))
+    # self.y[0] = np.exp(y[0] - logsumexp(y[0]))
+    # self.y[1] = np.exp(y[1] - logsumexp(y[1]))
+    
     # np.exp(x - logsumexp(x))
     # print(self.y[0])
     # print("")
 
-    self.y[0] = np.exp(y[0])
-    self.y[1] = np.exp(y[1])
+    # self.y[0] = np.exp(y[0])
+    # self.y[1] = np.exp(y[1])
 
+    #print(self.y[0][2:100])
 
     # Normalize sequence form for behavioral form
     for player_id in range(self._num_players):
@@ -748,15 +750,19 @@ class _CFRSolverBase(object):
         for action in infoset.legal_actions: #c, v in enumerate(infoset.legal_actions):
           #seq = infoset.sequences[c]
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
-          # if self.y[player_id][seq] <= 1e-130:
-          #   self.y[player_id][seq] = 1e-130
+          # if self.y[player_id][seq] <= 1e-230:
+          #   self.y[player_id][seq] = 1e-230
           denom += self.y[player_id][seq]
         for action in infoset.legal_actions:
           # seq = infoset.sequences[c]
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
           
-          self._current_policy.action_probability_array[
-          infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
+          if denom < 1e-120:
+            self._current_policy.action_probability_array[
+          infoset.index_in_tabular_policy][action] = 1.0 / len(infoset.legal_actions)
+          else:          
+            self._current_policy.action_probability_array[
+            infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
           
 
         # for action, seq in enumerate(infoset.sequences):
