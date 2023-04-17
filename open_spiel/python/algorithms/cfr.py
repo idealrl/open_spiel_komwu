@@ -640,7 +640,7 @@ class _CFRSolverBase(object):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 # / 15.0 # eta <= 1/8
+        eta = 1.0  / 3.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     # print(len(self.b[0]))
     # print(self.b[0])
@@ -757,7 +757,7 @@ class _CFRSolverBase(object):
           # seq = infoset.sequences[c]
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
           
-          if denom < 1e-120:
+          if denom < 1e-220:
             self._current_policy.action_probability_array[
           infoset.index_in_tabular_policy][action] = 1.0 / len(infoset.legal_actions)
           else:          
