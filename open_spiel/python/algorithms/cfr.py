@@ -922,4 +922,4 @@ class CFRSolver(_CFRSolver):
         game,
         regret_matching_plus=False,
         alternating_updates=False,
-        linear_averaging=False)
+        linear_averaging=False) 
