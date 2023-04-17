@@ -624,7 +624,7 @@ class _CFRSolverBase(object):
             seqs=[-100000,-100000])
   
     for player_id in range(self._num_players):
-      opt = 2.0
+      opt = 3.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
         eta = 1.0#  / 3.0 # eta <= 1/8
