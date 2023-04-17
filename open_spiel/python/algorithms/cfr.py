@@ -182,11 +182,9 @@ class _CFRSolverBase(object):
     self._root_node = self._game.new_initial_state()
 
     # This is for returning the current policy and average policy to a caller
-    self._current_policy = policy.TabularPolicy(game, players=[0,1])
-    print(self._current_policy.action_probability_array)
-    print("AVOVE")
-    
-    
+    self._current_policy = policy.TabularPolicy(game)#, players=[0,1])
+    # print(self._current_policy.action_probability_array)
+    # print("AVOVE")
     
     self._average_policy = self._current_policy.__copy__()
 
@@ -198,17 +196,17 @@ class _CFRSolverBase(object):
     global INFOID
     p = 0
     
-    self.seq_ID = 0
+    # self.seq_ID = 0
     LID = 0
     INFOID = 0
-    self.ID = 0 # infoset IDs
+    # self.ID = 0 # infoset IDs
     # Arguments(state, last_action, player_id, parent_infoset, depth)
     self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None, 0)
     self._initialize_children_komwu(self._root_node, -1, p, None)
     b0 = [0 for _ in range(LID)]
 
     p = 1
-    self.seq_id = 0 # Reset to make sequences
+    # self.seq_id = 0 # Reset to make sequences
     self.ID = 0
     INFOID = 0
     LID = 0
@@ -216,10 +214,6 @@ class _CFRSolverBase(object):
     self._initialize_children_komwu(self._root_node, -1, p, None)
     b1 = [0 for _ in range(LID)]
 
-    #print("LID: ", LID)
-    #self.seq_id = LID
-    # self.grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
-    # self.last_grad = [[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
     
 
     self.b = [b0, b1]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
@@ -439,7 +433,7 @@ class _CFRSolverBase(object):
           # print("Info_state: ", info_state," INFODI: ", infoid, " par_seq: ", last_seq, " THIS SEQ: ", cur_seq)
           self._initialize_info_state_nodes_komwu(state.child(action), cur_seq, player_id, info_state_node, depth+1)
           
-      # If infoset already exists, append history
+      # If infoset already exists, append history (NOT USED CURRENTLY)
       else:
         self._info_state_nodes_komwu[player_id][info_state].states.append(state)
         for action in info_state_node.legal_actions:
@@ -482,13 +476,14 @@ class _CFRSolverBase(object):
           # Need .children?
           if info_state_node not in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
             self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq].append(info_state_node)
-            # print("Setting ", parent_infoset, " now has: ")
-            # for x in self._info_state_nodes_komwu[player_id][parent_infoset].sequence_to_infoset[seq]:
-            #   print("  child: ", x.info_state)
+            print("Setting ", parent_infoset, " now has: ", info_state_node.info_state)
+          else:
+            print("Actually ", parent_infoset, " ALREADY HAS: ", info_state_node.info_state)
+         
           self._info_state_nodes_komwu[player_id][parent_infoset].children.append(info_state_node)
 
         
-      for action in info_state_node.legal_actions:
+      for action in state.legal_actions(current_player): #info_state_node.legal_actions:
         seq = self._info_state_nodes_komwu[player_id][info_state].actions_to_sequences[action]
         self._initialize_children_komwu(state.child(action), seq, player_id, info_state)
       
@@ -523,6 +518,7 @@ class _CFRSolverBase(object):
       time averaged policy (weighted by player reach probabilities) for both
       players.
     """
+    # These just normalize I think, check again
     _update_average_policy(self._average_policy, self._info_state_nodes_komwu[0])
     _update_average_policy(self._average_policy, self._info_state_nodes_komwu[1])
     
@@ -533,7 +529,6 @@ class _CFRSolverBase(object):
     if state.is_terminal():
 
       cfr = reach_probabilities[-1]
-      # print(cfr)
       # Update player 0
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:0]) *
@@ -541,7 +536,6 @@ class _CFRSolverBase(object):
       
       # self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
       self.grad[0][seqs[0]] += state.returns()[0] * cfr * self.y[1][seqs[1]]
-      # print(self.y[0][seqs[0]])
 
       # Update player 1
       counterfactual_reach_prob = (
@@ -586,8 +580,8 @@ class _CFRSolverBase(object):
     
     for action in state.legal_actions():
       action_prob = info_state_policy.get(action, 0.)
-      # action_prob = self._current_policy.action_probability_array[
-      #     info_state_node.index_in_tabular_policy][action + r]
+      action_prob = self._current_policy.action_probability_array[
+          info_state_node.index_in_tabular_policy][action]
       new_state = state.child(action)
       new_reach_probabilities = reach_probabilities.copy()
       new_reach_probabilities[current_player] *= action_prob
@@ -628,50 +622,35 @@ class _CFRSolverBase(object):
             reach_probabilities=np.ones(self._game.num_players() + 1),
             player=None,
             seqs=[-100000,-100000])
-   
-    # 5 3232
-    # 6 2610
-    # 7 2475
-    # 8 1852
-    # 18 767
-    # 22 633
-    # 50 485
+  
     for player_id in range(self._num_players):
       opt = 2.0
       opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0 #  / 3.0 # eta <= 1/8
+        eta = 1.0#  / 3.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
-    # print(len(self.b[0]))
-    # print(self.b[0])
-    # print("GRAD")
-    # print(self.grad)
-    # print(self.last_grad)
     self.last_grad = self.grad
   
     self._compute_x(t)
 
   def _compute_x(self,t):  
 
+    # Create new list that ensure that all top come before depth=2, 2 before 3, etc
     new_list = [[],[]]
     for player_id in range(self._num_players):
-      for i in range(10):
+      for i in range(20):
         for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
           if infoset.depth == i:
             new_list[player_id].append(infoset)
-    # for i in new_list:
-    #   print(i)
     
-    # print(len(new_list[0]), len(new_list[1]))
-
+    
     self.y = [[],[]]  
+    
     # Step 1
-    # print(len(self.b[0]), len(self.b[0]))
-    # print("Iteration: ", t)
     y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]
     self.y = [[0 for _ in range(len(self.b[i]))] for i in range(self._num_players)]  
     for player_id in range(self._num_players):
-      # print("Player: ", player_id)
+
       K_j = [None] * len(self._info_state_nodes_komwu[player_id])
       
       #for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
@@ -747,29 +726,19 @@ class _CFRSolverBase(object):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         state_policy = self._current_policy.policy_for_key(info_str)
         denom = 0
-        for action in infoset.legal_actions: #c, v in enumerate(infoset.legal_actions):
-          #seq = infoset.sequences[c]
+        for action in infoset.legal_actions:
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
           # if self.y[player_id][seq] <= 1e-230:
           #   self.y[player_id][seq] = 1e-230
           denom += self.y[player_id][seq]
         for action in infoset.legal_actions:
-          # seq = infoset.sequences[c]
-          seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
-          
+          seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]
           if denom < 1e-220:
             self._current_policy.action_probability_array[
           infoset.index_in_tabular_policy][action] = 1.0 / len(infoset.legal_actions)
           else:          
             self._current_policy.action_probability_array[
             infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
-          
-
-        # for action, seq in enumerate(infoset.sequences):
-        #   denom += self.y[player_id][seq]
-        # for action, seq in enumerate(infoset.sequences):
-        #   self._current_policy.action_probability_array[
-        #   infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
           # infoset.cumulative_policy[action] += y[player_id][seq]
 
     # print(self._current_policy.action_probability_array)
