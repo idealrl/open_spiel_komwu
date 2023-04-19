@@ -53,6 +53,7 @@ class _InfoStateNode(object):
   player = attr.ib()
   info_state = attr.ib()
   depth = attr.ib()
+  cfrp_sum = attr.ib()
   actions_to_sequences = attr.ib(factory=dict)
   sequence_to_infoset = attr.ib(factory=dict)
   
@@ -191,7 +192,17 @@ class _CFRSolverBase(object):
     # self._info_state_nodes = {}
     # self._initialize_info_state_nodes(self._root_node)
 
+    
+
     self._info_state_nodes_komwu = [{} for _ in range(self._num_players)]
+    
+    # Set a 'block' which is how often to check the lazy update condition
+  # So if block=3, only update update_infosets for 'block' iterations
+  # After 'block' iterations, check conditions again
+    # If sum(pi-i) > 1, add to update_blocks
+    self._update_nodes_komwu = [[],[]]
+    self.blocks = 3
+    self.current_block = 0
     global LID
     global INFOID
     p = 0
@@ -219,6 +230,17 @@ class _CFRSolverBase(object):
     self.b = [b0, b1]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
     self.grad = [b0, b1]
     self.last_grad = [b0, b1]
+
+    g0 = [0 for _ in range(len(self.b[0]))]
+    g1 = [0 for _ in range(len(self.b[1]))]
+    self.last_grad = [[],[]]
+    self.last_grad[0] = [[0] for _ in range(len(self.b[0]))]
+    for i in range(len(self.last_grad[0])):
+      self.last_grad[0][i].append(0)
+    self.last_grad[1] = [[0] for _ in range(len(self.b[1]))]
+    for i in range(len(self.last_grad[1])):
+      self.last_grad[1][i].append(0)
+
 
     p0 = []
     p1 = []
@@ -417,7 +439,8 @@ class _CFRSolverBase(object):
             ID=INFOID,
             player=current_player,
             info_state=info_state,
-            depth=depth
+            depth=depth,
+            cfrp_sum=0.0
             )
         global LID
         INFOID += 1
@@ -524,7 +547,11 @@ class _CFRSolverBase(object):
     
     return self._average_policy
 
-  def _compute_grad(self, state, policies, reach_probabilities, player, seqs):
+
+  
+
+
+  def _compute_grad(self, state, policies, reach_probabilities, player, seqs, depth):
     
     if state.is_terminal():
 
@@ -535,14 +562,20 @@ class _CFRSolverBase(object):
         np.prod(reach_probabilities[0 + 1:]))
       
       # self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
-      self.grad[0][seqs[0]] += state.returns()[0] * cfr * self.y[1][seqs[1]]
+      # WORKING self.grad[0][seqs[0]] += state.returns()[0] * cfr * self.y[1][seqs[1]]
+      # Division is for normalizing rewards
+      self.grad[0][seqs[0]][0] += (state.returns()[0] / 1.0) * cfr * self.y[1][seqs[1]]
+      self.grad[0][seqs[0]][1] = 2.0
 
       # Update player 1
       counterfactual_reach_prob = (
         np.prod(reach_probabilities[:1]) *
         np.prod(reach_probabilities[1 + 1:]))
       # self.grad[1][seqs[1]] += state.returns()[1] * counterfactual_reach_prob
-      self.grad[1][seqs[1]] += state.returns()[1] * cfr * self.y[0][seqs[0]]
+      # WORKING self.grad[1][seqs[1]] += state.returns()[1] * cfr * self.y[0][seqs[0]]
+      self.grad[1][seqs[1]][0] += state.returns()[1] * cfr * self.y[0][seqs[0]]
+      self.grad[1][seqs[1]][1] = 2.0
+      
       return np.asarray(state.returns())
 
     if state.is_chance_node():
@@ -554,14 +587,14 @@ class _CFRSolverBase(object):
         new_reach_probabilities[-1] *= action_prob
         # print("Chance: action: ", action, " action_prob: ", action_prob, " rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
         state_value += action_prob * self._compute_grad(
-            new_state, policies, new_reach_probabilities, player, seqs)
+            new_state, policies, new_reach_probabilities, player, seqs, depth)
       return state_value
 
     current_player = state.current_player()
     info_state = state.information_state_string(current_player)
 
-    # if all(reach_probabilities[:-1] == 0):
-    #   return 0#np.zeros(self._num_players)
+    if all(reach_probabilities[:-1] == 0):
+      return 0#np.zeros(self._num_players)
 
     state_value = np.zeros(self._num_players)
 
@@ -576,7 +609,6 @@ class _CFRSolverBase(object):
       info_state_policy = self._get_infostate_policy_komwu(info_state, current_player)
     else:
       info_state_policy = policies[current_player](info_state)
-    # print("Using: ", info_state_policy, " player: ", current_player)
     
     for action in state.legal_actions():
       action_prob = info_state_policy.get(action, 0.)
@@ -585,8 +617,6 @@ class _CFRSolverBase(object):
       new_state = state.child(action)
       new_reach_probabilities = reach_probabilities.copy()
       new_reach_probabilities[current_player] *= action_prob
-      # print("rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
-      # seq = self._info_state_nodes_komwu[current_player][info_state].sequences[i]
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
       reach_prob = reach_probabilities[current_player]
       info_state_node.cumulative_policy[action] += reach_prob * action_prob
@@ -601,33 +631,52 @@ class _CFRSolverBase(object):
           policies=policies,
           reach_probabilities=new_reach_probabilities,
           player=player,
-          seqs=new_seqs)
+          seqs=new_seqs,
+          depth=depth+1)
 
    
     return state_value
 
+  def logsumexp_test(x):
+    c = x.max()
+    return c + np.log(np.sum(np.exp(x - c)))
 
   def _komwu(self, t):
     
     # seq_id was built up to the total number of seqs
+
+    # grad[player][seq][0] = grad
+    # grad[player][seq][1] = depth/optimism to apply
     g0 = [0 for _ in range(len(self.b[0]))]
     g1 = [0 for _ in range(len(self.b[1]))]
-    self.grad = [[0 for _ in range(len(self.b[0]))], [0 for _ in range(len(self.b[0]))]]#[[0 for _ in range(self.seq_id)] for _ in range(self._num_players)]
+    self.grad = [[],[]]
+    self.grad[0] = [[0] for _ in range(len(self.b[0]))]
+    for i in range(len(self.grad[0])):
+      self.grad[0][i].append(0)
+    self.grad[1] = [[0] for _ in range(len(self.b[1]))]
+    for i in range(len(self.grad[1])):
+      self.grad[1][i].append(0)
     
-    # state, policies, reach_probabilities, player, seqs
+
+    self._update_nodes_komwu = [[],[]]
+    self.blocks = 3
+    self.current_block = 0
+
+    # state, policies, reach_probabilities, player, seqs, depth
     # Should do lazy cfr check here and collect infosets that will be affected
     # And only use them in _compute_x
     self._compute_grad(self._root_node,
             policies=None,
             reach_probabilities=np.ones(self._game.num_players() + 1),
             player=None,
-            seqs=[-100000,-100000])
+            seqs=[-100000,-100000],depth=0)
   
+    
     for player_id in range(self._num_players):
-      opt = 3.0
-      opt_grad = [opt * self.grad[player_id][i] - (opt-1.0) * self.last_grad[player_id][i] for i in range(len(self.grad[player_id]))]
+      opt = -100.0 # OPT IS SET IN COMPUTE_GRAD NOW
+      opt_grad = [(self.grad[player_id][i][1] * 1.0) * self.grad[player_id][i][0] - (self.grad[player_id][i][1]-1.0) * self.last_grad[player_id][i][0] for i in range(len(self.grad[player_id]))]
       for i in range(len(self.b[player_id])):
-        eta = 1.0#  / 3.0 # eta <= 1/8
+        eta = 1.0  # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
     self.last_grad = self.grad
   
@@ -642,7 +691,7 @@ class _CFRSolverBase(object):
         for info_str, infoset in reversed(list(self._info_state_nodes_komwu[player_id].items())):
           if infoset.depth == i:
             new_list[player_id].append(infoset)
-    
+   
     
     self.y = [[],[]]  
     
@@ -705,12 +754,11 @@ class _CFRSolverBase(object):
           + self.b[player_id][sequence_id] + sum([K_j[child.ID] for child in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[sequence_id]]) \
           - K_j[infoset.ID]
 
-    # print(y[0])  
+    # Working 
     self.y[0] = np.exp(y[0])
     self.y[1] = np.exp(y[1])
 
-    # self.y[0] = np.exp(y[0] - logsumexp(y[0]))
-    # self.y[1] = np.exp(y[1] - logsumexp(y[1]))
+    # print(self.y[0])
     
     # np.exp(x - logsumexp(x))
     # print(self.y[0])
@@ -722,6 +770,7 @@ class _CFRSolverBase(object):
     #print(self.y[0][2:100])
 
     # Normalize sequence form for behavioral form
+    # exploitability computation requires this
     for player_id in range(self._num_players):
       for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
         state_policy = self._current_policy.policy_for_key(info_str)
@@ -731,11 +780,23 @@ class _CFRSolverBase(object):
           # if self.y[player_id][seq] <= 1e-230:
           #   self.y[player_id][seq] = 1e-230
           denom += self.y[player_id][seq]
+        # if denom < 1e-220:
+        # #do_nothing_to_policy = 1
+        #   print("Denom low: ", denom, "  info: ", info_str)
+        #   for action in infoset.legal_actions:
+        #     seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
+        #     print("   ", self.y[player_id][seq])
         for action in infoset.legal_actions:
           seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]
+          
           if denom < 1e-220:
-            self._current_policy.action_probability_array[
-          infoset.index_in_tabular_policy][action] = 1.0 / len(infoset.legal_actions)
+            do_nothing_to_policy = 1
+            # print("Denom low: ", denom, "  info: ", info_str)
+            # for action in infoset.legal_actions:
+            #   seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
+            #   print("   ", self.y[player_id][seq])
+            # #self._current_policy.action_probability_array[
+            #infoset.index_in_tabular_policy][action] = 1.0 / len(infoset.legal_actions)
           else:          
             self._current_policy.action_probability_array[
             infoset.index_in_tabular_policy][action] = self.y[player_id][seq] / denom
@@ -922,4 +983,4 @@ class CFRSolver(_CFRSolver):
         game,
         regret_matching_plus=False,
         alternating_updates=False,
-        linear_averaging=False) 
+        linear_averaging=False)
