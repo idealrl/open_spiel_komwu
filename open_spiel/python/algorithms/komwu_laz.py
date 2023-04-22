@@ -55,6 +55,8 @@ class _InfoStateNode(object):
   depth = attr.ib()
   cfrp_sum = attr.ib()
   accum_sum = attr.ib()
+  reach_probs1 = attr.ib(default=[1.0, 1.0])
+  reach_probs2 = attr.ib(default=[1.0, 1.0])
   actions_to_sequences = attr.ib(factory=dict)
   sequence_to_infoset = attr.ib(factory=dict)
   
@@ -196,14 +198,15 @@ class _CFRSolverBase(object):
     
 
     self._info_state_nodes_komwu = [{} for _ in range(self._num_players)]
+    self._reach_probs = [{} for _ in range(self._num_players)]
     
     # Set a 'block' which is how often to check the lazy update condition
   # So if block=3, only update update_infosets for 'block' iterations
   # After 'block' iterations, check conditions again
     # If sum(pi-i) > 1, add to update_blocks
-    self._update_nodes_komwu = [[],[]]
+    # self._update_nodes_komwu = [[],[]]
     self.blocks = 4
-    self.current_block = 1
+    self.current_block = 4
     
     global LID
     global INFOID
@@ -226,9 +229,9 @@ class _CFRSolverBase(object):
     self._initialize_info_state_nodes_komwu(self._root_node, -1, p,None,0)
     self._initialize_children_komwu(self._root_node, -1, p, None)
     
-    for player_id in range(self._num_players):
-      for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
-        self._update_nodes_komwu[player_id].append([info_str, infoset])
+    # for player_id in range(self._num_players):
+    #   for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
+    #     self._update_nodes_komwu[player_id].append([info_str, infoset])
     
     b1 = [0 for _ in range(LID)]
 
@@ -273,149 +276,8 @@ class _CFRSolverBase(object):
     p1 = []
     self._root_node = self._game.new_initial_state()
 
-    # print("-----State state--------")
-    # state = self._root_node
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
 
-    # act = state.legal_actions()[0]
-    # print("Taking action: ", act)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-
-    # tabular_policy = self._current_policy
-    # info_state_str = state.information_state_string(0)
-    # state_policy = tabular_policy.policy_for_key(info_state_str)
-    # print(state_policy)
-    # #state_policy[action] = <value>
-
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-    # tabular_policy = self._current_policy
-    # info_state_str = state.information_state_string(1)
-    # state_policy = tabular_policy.policy_for_key(info_state_str)
-    # print(state_policy)
-    # #state_policy[action] = <value>
-
-    # # player 0
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-    # info_state = state.information_state_string(current_player)
-    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
-    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
-    # sti = self._info_state_nodes_komwu[current_player][info_state].sequence_to_infoset[seq]
-    # x = [sti[i].sequences for i in range(len(sti))]
-    # print(x)
-    # print("ID:")
-    # print(info_state_node.ID)
-    # x = [sti[i].ID for i in range(len(sti))]
-    # print(x)
-    # print(sti[1].ID)
-    # # print(sti[0].sequences, len(sti))#, sti)
-    # p0.append(seq)
-    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p0)
-
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-    # # player 1
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-    # info_state = state.information_state_string(current_player)
-    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
-    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
-    # p1.append(seq)
-    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p1)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-    # # Chance (community card)
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-    # # player 0
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-    # info_state = state.information_state_string(current_player)
-    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
-    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
-    # p0.append(seq)
-    # print("ID:")
-    # print(info_state_node.ID)
-    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p0)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
-    # # player 1
-    # act = state.legal_actions()[1]
-    # print("Taking action: ", act)
-    # info_state = state.information_state_string(current_player)
-    # info_state_node = self._info_state_nodes_komwu[current_player].get(info_state)
-    # seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[act]
-    # p1.append(seq)
-    # print("Seq: ", seq, " Parent seq: ", info_state_node.parent_seq, " Player ", current_player, " seqs: ", p1)
-
-    # print("-----Next state--------")
-    # state = state.child(act)
-    # print(state)
-    # current_player = state.current_player()
-    # print("  Current Player: ", current_player)
-    # print("  Legal actions:")
-    # print("  ", state.legal_actions())
-    # print("-------------------------")
-
+    # print(self._update_nodes_komwu)
     self._compute_x(t=0)
 
     self._iteration = 0  # For possible linear-averaging.
@@ -468,7 +330,10 @@ class _CFRSolverBase(object):
             info_state=info_state,
             depth=depth,
             cfrp_sum=0.0,
-            accum_sum=1.0
+            accum_sum=1.0,
+            reach_probs1=[1.0,1.0],
+            reach_probs2=[1.0,1.0]
+
             )
         global LID
         INFOID += 1
@@ -576,6 +441,142 @@ class _CFRSolverBase(object):
     return self._average_policy
 
 
+  # in compute_grad, reach_probs is used and then reset 
+  #   so whatever accumulated is used once if it is there
+  # here we are adding infosets to update_nodes_komwu if m > 1.0
+  #  and also setting .reach_probs to be used in the first iteration of compute_grad
+  def _update(self, state, policies, reach_probabilities, player, seqs, depth, update):
+    
+    if state.is_terminal():
+      return np.asarray(state.returns())
+
+    if state.is_chance_node():
+      for action, action_prob in state.chance_outcomes():
+        self._update(state.child(action), policies, None, player, seqs, depth, update)
+      return 0
+
+    current_player = state.current_player()
+    info_state = state.information_state_string(current_player)
+    info_state_node = self._info_state_nodes_komwu[current_player][info_state]
+    if policies is None:
+      info_state_policy = self._get_infostate_policy_komwu(info_state, current_player)
+    else:
+      info_state_policy = policies[current_player](info_state)
+    
+    if [info_state, info_state_node] not in self._update_nodes_komwu[current_player]:
+      if info_state_node.reach_probs1[current_player] >= 0.0:
+        self._update_nodes_komwu[current_player].append([info_state, info_state_node])
+        print("In update Added: ", info_state)
+        info_state_node.reach_probs2[current_player] = info_state_node.reach_probs1[current_player]
+        info_state_node.reach_probs1[current_player] = 0.0
+        for action in info_state_node.legal_actions:
+          seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
+          self.grad[current_player][seq][0] = 0.0 #does this do anything?
+          self.grad[current_player][seq][1] = 2.0     
+
+    for action in state.legal_actions():
+      seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
+      new_seqs = seqs.copy()
+      new_seqs[current_player] = seq
+      seqs[current_player] = seq
+
+      child_utility = self._update(
+          state.child(action),
+          policies=policies,
+          reach_probabilities=None,
+          player=player,
+          seqs=new_seqs,
+          depth=depth+1,
+          update=update)
+
+
+
+  # def _compute_grad(self, state, policies, reach_probabilities, player, seqs, depth):
+    
+  #   if state.is_terminal():
+
+  #     cfr = reach_probabilities[-1]
+  #     # Update player 0
+  #     counterfactual_reach_prob = (
+  #       np.prod(reach_probabilities[:0]) *
+  #       np.prod(reach_probabilities[0 + 1:]))
+      
+  #     # self.grad[0][seqs[0]] += state.returns()[0] * counterfactual_reach_prob
+  #     # WORKING self.grad[0][seqs[0]] += state.returns()[0] * cfr * self.y[1][seqs[1]]
+  #     # Division is for normalizing rewards
+  #     self.grad[0][seqs[0]][0] += (state.returns()[0] / 1.0) * cfr * self.y_exp[1][seqs[1]]
+  #     self.grad[0][seqs[0]][1] = 2.0
+
+  #     # Update player 1
+  #     counterfactual_reach_prob = (
+  #       np.prod(reach_probabilities[:1]) *
+  #       np.prod(reach_probabilities[1 + 1:]))
+  #     # self.grad[1][seqs[1]] += state.returns()[1] * counterfactual_reach_prob
+  #     # WORKING self.grad[1][seqs[1]] += state.returns()[1] * cfr * self.y[0][seqs[0]]
+  #     self.grad[1][seqs[1]][0] += state.returns()[1] * cfr * self.y_exp[0][seqs[0]]
+  #     self.grad[1][seqs[1]][1] = 2.0
+      
+  #     return np.asarray(state.returns())
+
+  #   if state.is_chance_node():
+  #     state_value = 0.0
+  #     for action, action_prob in state.chance_outcomes():
+  #       assert action_prob > 0
+  #       new_state = state.child(action)
+  #       new_reach_probabilities = reach_probabilities.copy()
+  #       new_reach_probabilities[-1] *= action_prob
+  #       # print("Chance: action: ", action, " action_prob: ", action_prob, " rp: ", reach_probabilities, " nrp: ", new_reach_probabilities)
+  #       state_value += action_prob * self._compute_grad(
+  #           new_state, policies, new_reach_probabilities, player, seqs, depth)
+  #     return state_value
+
+  #   current_player = state.current_player()
+  #   info_state = state.information_state_string(current_player)
+
+  #   if all(reach_probabilities[:-1] == 0):
+  #     return 0#np.zeros(self._num_players)
+
+  #   state_value = np.zeros(self._num_players)
+
+  #   # The utilities of the children states are computed recursively. As the
+  #   # regrets are added to the information state regrets for each state in that
+  #   # information state, the recursive call can only be made once per child
+  #   # state. Therefore, the utilities are cached.
+  #   children_utilities = {}
+
+  #   info_state_node = self._info_state_nodes_komwu[current_player][info_state]
+  #   if policies is None:
+  #     info_state_policy = self._get_infostate_policy_komwu(info_state, current_player)
+  #   else:
+  #     info_state_policy = policies[current_player](info_state)
+    
+  #   for action in state.legal_actions():
+  #     action_prob = info_state_policy.get(action, 0.)
+  #     action_prob = self._current_policy.action_probability_array[
+  #         info_state_node.index_in_tabular_policy][action]
+  #     new_state = state.child(action)
+  #     new_reach_probabilities = reach_probabilities.copy()
+  #     new_reach_probabilities[current_player] *= action_prob
+  #     seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
+  #     reach_prob = reach_probabilities[current_player]
+  #     info_state_node.cumulative_policy[action] += reach_prob * action_prob
+  #     ######## CHANGED NOTHING
+  #     new_seqs = seqs.copy()
+  #     new_seqs[current_player] = seq
+  #     ################
+
+  #     seqs[current_player] = seq
+  #     child_utility = self._compute_grad(
+  #         new_state,
+  #         policies=policies,
+  #         reach_probabilities=new_reach_probabilities,
+  #         player=player,
+  #         seqs=new_seqs,
+  #         depth=depth+1)
+
+   
+  #   return state_value
+
 
 
   def _compute_grad(self, state, policies, reach_probabilities, player, seqs, depth, update):
@@ -637,57 +638,8 @@ class _CFRSolverBase(object):
       info_state_policy = policies[current_player](info_state)
     
     # If time to update self._update_nodes_komwu
-    if update:
-      # if cfrp if above threshold, add it to what will be updated
-      if [info_state, info_state_node] not in self._update_nodes_komwu[current_player]:
-        if info_state_node.cfrp_sum >= 0.1:
-          # print(info_state, info_state_node.cfrp_sum)
-          # print("Update TRUE: Adding it, Sum was above 1 for: ", info_state)
-          self._update_nodes_komwu[current_player].append([info_state, info_state_node])
-          info_state_node.cfrp_sum = 0.0
-          # If here, clear all of this infoset's grads
-          for action in info_state_node.legal_actions:
-            seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
-            self.grad[current_player][seq][0] = 0.0 #does this do anything?
-            self.grad[current_player][seq][1] = 2.0     
-        else:
-          # print("Update TRUE BUT Sum was below for: ", info_state)
-          # print(info_state, info_state_node.cfrp_sum)
-          # Keep self.grad the same for this
-          # info_state_node.cfrp_sum = 0.0 #Does it reset each time?
-          other_player = 1 - current_player
-          if seqs[other_player] >= 0:
-            info_state_node.cfrp_sum += self.y_exp[other_player][seqs[other_player]]#counterfactual_reach_prob
-          else:
-            info_state_node.cfrp_sum = 1.0
-
-          # KEEP TRACK OF SUM OF RP FOR WHEN IT DOES 
-          counterfactual_reach_prob = (
-          np.prod(reach_probabilities[:current_player]) *
-          np.prod(reach_probabilities[current_player + 1:]))
-          info_state_node.accum_sum += counterfactual_reach_prob
-          return 0
-    else:
-      # Not updating self._update_nodes_komwu
-      # Check to see if we already dealt with this infoset
-      
-      # if info_state not in self.visited:
-      counterfactual_reach_prob = (
-          np.prod(reach_probabilities[:current_player]) *
-          np.prod(reach_probabilities[current_player + 1:]))
-      other_player = 1 - current_player
-      if seqs[other_player] >= 0:
-        info_state_node.cfrp_sum += self.y_exp[other_player][seqs[other_player]]#counterfactual_reach_prob
-      else:
-        info_state_node.cfrp_sum = 1.0
-      # self.visited.append(info_state)
-        # print("Update false: infoset: ", info_state, "  summing cfrp: ", info_state_node.cfrp_sum)
-      if [info_state, info_state_node] not in self._update_nodes_komwu[current_player]:
-        # print("   Info_state not in update_nodes_komwu: returning: ", info_state)
-        # KEEP TRACK FOR WHEN IT DOES
-        info_state_node.accum_sum += counterfactual_reach_prob
-        return 0
-
+    reach_probs = [1.0, 1.0]
+    # print("IN STATE: ", info_state)
     for action in state.legal_actions():
       action_prob = info_state_policy.get(action, 0.)
       action_prob = self._current_policy.action_probability_array[
@@ -696,16 +648,21 @@ class _CFRSolverBase(object):
       new_reach_probabilities = reach_probabilities.copy()
       new_reach_probabilities[current_player] *= action_prob
 
-      new_reach_probabilities[current_player] *= info_state_node.accum_sum
-      new_reach_probabilities[1 - current_player] *= info_state_node.accum_sum
-      info_state_node.accum_sum = 1.0
+      # print("probs2: ", info_state_node.reach_probs2[current_player])
+      # new_reach_probabilities[current_player] *= info_state_node.reach_probs2[current_player]
+      # info_state_node.reach_probs2[current_player] = 1.0
+      # other_player = 1 - current_player
+      # print("probs2 (OP): ", info_state_node.reach_probs2[other_player])
+      
+      # new_reach_probabilities[other_player] *= info_state_node.reach_probs2[other_player]
+      # info_state_node.reach_probs2[other_player] = 1.0
       
       seq = self._info_state_nodes_komwu[current_player][info_state].actions_to_sequences[action]      
       # if first time seeing sequence, reset its grad to 0
-      if seq not in self.visited[current_player]:
-        self.visited[current_player].append(seq)
-        self.grad[current_player][seq][0] = 0.0
-        self.grad[current_player][seq][1] = 2.0
+      # if seq not in self.visited[current_player]:
+      #   self.visited[current_player].append(seq)
+      #   self.grad[current_player][seq][0] = 0.0
+      #   self.grad[current_player][seq][1] = 2.0
       
       reach_prob = reach_probabilities[current_player]
       info_state_node.cumulative_policy[action] += reach_prob * action_prob
@@ -730,52 +687,31 @@ class _CFRSolverBase(object):
 
   def _komwu(self, t):
     
-    # seq_id was built up to the total number of seqs
-    # print("ITERATION: ", t)
-    # grad[player][seq][0] = grad
-    # grad[player][seq][1] = depth/optimism to apply
-    # g0 = [0 for _ in range(len(self.b[0]))]
-    # g1 = [0 for _ in range(len(self.b[1]))]
-    # self.grad = [[],[]]
-    # self.grad[0] = [[0] for _ in range(len(self.b[0]))]
-    # for i in range(len(self.grad[0])):
-    #   self.grad[0][i].append(0)
-    # self.grad[1] = [[0] for _ in range(len(self.b[1]))]
-    # for i in range(len(self.grad[1])):
-    #   self.grad[1][i].append(0)
-    # print(self.grad)
-    # # KEEP GRADS FOR UNTOUCHED INFOSETS?
-
-    # GRADS FOR ONES WE SEE: SET TO ZERO
-    # GRADS FOR SKIPPED: LEAVE AS IS
-    # for player_id in range(self._num_players):
-    #   for info_str, infoset in reversed(self._update_nodes_komwu[player_id]):
-    #     # print("Setting grad=0 for: ", info_str)
-    #     for action in infoset.legal_actions:
-    #       seq = self._info_state_nodes_komwu[player_id][info_str].actions_to_sequences[action]      
-    #       self.grad[player_id][seq][0] = 0.0
-    #       self.grad[player_id][seq][1] = 2.0
-    # print("")
-
-    update = None
     if self.current_block == self.blocks:
-      # print("UPDATE = TRUE")
-      update = True # Tell it to update self._update_nodes_komwu
       self.current_block = 1
       self._update_nodes_komwu = [[],[]]
+      print("Calling Update")
+      self._update(self._root_node,
+              policies=None,
+              reach_probabilities=np.ones(self._game.num_players() + 1),
+              player=None,
+              seqs=[-100000,-100000],depth=0, update=None)
+      print("Update End")
     else:
-      update = False
       self.current_block += 1
 
-    self.visited = [[],[]]
-    # if update:
-      # print("Calling compute_grad to collect infosets")
+    for player_id in range(self._num_players):
+      for i in range(len(self.grad[player_id])):
+        self.grad[player_id][i] = [0,2.0]
+        # self.grad[player_id][i] = 0.0
+
+    
     self._compute_grad(self._root_node,
             policies=None,
             reach_probabilities=np.ones(self._game.num_players() + 1),
             player=None,
-            seqs=[-100000,-100000],depth=0, update=update)
-    # print("")
+            seqs=[-100000,-100000],depth=0, update=None)
+    
 
     for player_id in range(self._num_players):
       opt = -100.0 # OPT IS SET IN COMPUTE_GRAD NOW
@@ -791,25 +727,24 @@ class _CFRSolverBase(object):
       for i in range(len(self.b[player_id])):
         eta = 1.0 # eta <= 1/8
         self.b[player_id][i] += eta * opt_grad[i]
-    # self.last_grad = self.grad.copy()
-
-    # print("Next two lines should be the same")
-    # print(self.grad)
+    
     self.last_grad = [[],[]]
     for player_id in range(self._num_players):
       for i in range(len(self.grad[player_id])):
         self.last_grad[player_id].append([self.grad[player_id][i][0]])
-    # print(self.last_grad)
+    
     
     self._compute_x(t)
 
   def _compute_x(self,t):  
 
     # print("Infosets that will be looked at in compute_x")
+    # print(self._update_nodes_komwu)
     new_list = [[],[]]
     for player_id in range(self._num_players):
       for i in range(20):
-        for info_str, infoset in reversed(self._update_nodes_komwu[player_id]):
+        # for info_str, infoset in reversed(self._update_nodes_komwu[player_id]):
+        for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
           if infoset.depth == i:
             new_list[player_id].append(infoset)
     #         print("Compute_x: infoset: ", info_str)
@@ -820,14 +755,15 @@ class _CFRSolverBase(object):
     for player_id in range(self._num_players):
 
       # Bottom up traversal, want K_js from previous
+      # for infoset in new_list[player_id][::-1]:
       for infoset in new_list[player_id][::-1]:
         info_str = infoset.info_state
         self.K_j[player_id][infoset.ID] = logsumexp([
             self.b[player_id][seq] + sum([self.K_j[player_id][child_infoset.ID] for child_infoset in self._info_state_nodes_komwu[player_id][info_str].sequence_to_infoset[seq]])
             for seq in infoset.sequences
         ])
-      #   print("K_j: ", "(", info_str, ")", self.K_j[player_id][infoset.ID])
-      # print("")
+        print("K_j: ", "(", info_str, ")", self.K_j[player_id][infoset.ID])
+      print("")
 
       # print("--------------------")
       # for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
@@ -836,10 +772,11 @@ class _CFRSolverBase(object):
 
       # Step 3
       # Top-down traversal
+      # for infoset in new_list[player_id]:
       for infoset in new_list[player_id]:
+        info_str = infoset.info_state
         for sequence_id in infoset.sequences: #range(infoset.start_sequence_id, infoset.end_sequence_id + 1):
           # Proposition 5.3 in logarithmic form
-          info_str = infoset.info_state
           if infoset.parent_seq == -1:
             y_new = 0
           else:
@@ -855,8 +792,8 @@ class _CFRSolverBase(object):
 
     # Normalize sequence form for behavioral form
     for player_id in range(self._num_players):
-      # for info_str, infoset in self._info_state_nodes_komwu[player_id].items():
       for infoset in new_list[player_id]:
+      # for infoset in new_list[player_id]:
         info_str = infoset.info_state
         state_policy = self._current_policy.policy_for_key(info_str)
         denom = 0
