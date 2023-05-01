@@ -507,7 +507,7 @@ class _CFRSolverBase(object):
   def _compute_grad(self, state, policies, reach_probabilities, reach_probabilities_ref, player, seqs, depth, update, t):
     
     if state.is_terminal():
-      depth = 4.0 #15.0
+      depth = 2.0 #15.0
 
 
       self.mu = 0.01#1 / (t + 1) ** (3 / 4)#0.1
